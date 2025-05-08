@@ -57,6 +57,62 @@ def find_coordinates_index(row, col):
     return row * GRID_SIZE + col
   return None # else we just return None.
 
+# Now we are defining a function that will expand current state to the possible next states
+def expand_state(state):
+  empty_space_index = find_empty_space(state) # first we find exactly where the empty space is.
+  empty_space_row, empty_space_col = find_index_coordinates(empty_space_index) # now we find which exact row and col it is in.
+
+# here we have defined the possible valid moves and how the row/col change when we perform that move
+  valid_moves = {
+      'up' : (-1,0),
+      'down' : (1,0),
+      'left' : (0,-1),
+      'right' : (0,1)
+  }
+
+  next_possible_states = []
+
+  for move, (row_change, col_change) in valid_moves.items():
+    new_row = empty_space_row + row_change
+    new_col = empty_space_col + col_change
+
+    new_state_index = find_coordinates_index(new_row, new_col)
+
+    if new_state_index is not None:
+      new_state = list(state)
+      number_to_change = new_state[new_state_index]
+      new_state[empty_space_index] = number_to_change
+      new_state[new_state_index] = 0
+
+      new_state_tuple = tuple(new_state)
+
+      next_possible_states.append((new_state_tuple, move, 1))
+
+  return next_possible_states
+
+# now we will make functions to calculate the heuristic for misplaced-tiles and manhattan-distance (UCS has heuristic hardcoded to 0 so no need to make function for it)
+def calculate_misplaced_tiles_heuristic(state):
+  misplaced_tile_count = 0;
+  for i in range(TOTAL_TILES): # here we are iterating through all of the numbers in the current state
+    if (state[i] != 0) and (state[i] != GOAL_STATE[i]): # we check if the number is not a blank space and also that the number is in the correct position as it should be in the goal state
+      misplaced_tile_count += 1 # if not we increment counter by 1
+  return misplaced_tile_count # at the end as misplaced tiles heuristic works, we return the number of tiles that are misplaced with respect to the goal state that we have defined
+
+def calculate_manhattan_distance_heuristic(state):
+  distance = 0 # here we intialize the distance as 0
+
+  for i in range(TOTAL_TILES): # we iterate through all the numbers in the puzzle
+    tile = state[i]
+
+    if(tile != 0):
+      number_row, number_col = find_index_coordinates(i) # for each number we find its currenmt position in the puzzle
+      goal_row, goal_col = find_index_coordinates(tile-1) # we find the actual position the number should be in
+
+      distance += abs(number_row - goal_row) + abs(number_col - goal_col) # then we take the difference in the current and goal, row and col in order to find how many steps is the number away from its goal state and add it in distance
+# we do it for each number and all there distances together, this is how exactly the manhattan distance heuristic works.
+  return distance
+
+
 def get_user_input():
     print("\nEnter your 8-puzzle (3x3), using a 0 to represent the blank.")
     print("Enter the numbers for each row, delimited by spaces.")
@@ -94,3 +150,23 @@ def get_user_input():
          return None
 
     return tuple(state_list)
+
+def select_heuristic_algorithm():
+    print("\nSelect algorithm:")
+    print("1) Uniform Cost Search")
+    print("2) A* with Misplaced Tile Heuristic")
+    print("3) A* with Manhattan Distance Heuristic")
+
+    while True:
+        choice = input("Enter your choice (1, 2, or 3): ")
+        if choice == '1':
+            print("Selected: Uniform Cost Search")
+            return None
+        elif choice == '2':
+            print("Selected: A* with Misplaced Tile Heuristic")
+            return calculate_misplaced_tiles_heuristic
+        elif choice == '3':
+            print("Selected: A* with Manhattan Distance Heuristic")
+            return calculate_manhattan_distance_heuristic
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
