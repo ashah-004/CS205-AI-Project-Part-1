@@ -72,27 +72,28 @@ def expand_state(state):
 
   next_possible_states = []
 
+  # for the next states
   for move, (row_change, col_change) in valid_moves.items():
     new_row = empty_space_row + row_change
     new_col = empty_space_col + col_change
 
     new_state_index = find_coordinates_index(new_row, new_col)
 
-    if new_state_index is not None:
-      new_state = list(state)
+    if new_state_index is not None: # if the move is valid, we create a new state by swapping the blank space in that direction 
+      new_state = list(state) # converting into list 
       number_to_change = new_state[new_state_index]
       new_state[empty_space_index] = number_to_change
       new_state[new_state_index] = 0
 
-      new_state_tuple = tuple(new_state)
+      new_state_tuple = tuple(new_state) # converting back to tuple
 
-      next_possible_states.append((new_state_tuple, move, 1))
+      next_possible_states.append((new_state_tuple, move, 1)) # creating list of all possible states and then returning them
 
   return next_possible_states
 
 # now we will make functions to calculate the heuristic for misplaced-tiles and manhattan-distance (UCS has heuristic hardcoded to 0 so no need to make function for it)
 def calculate_misplaced_tiles_heuristic(state):
-  misplaced_tile_count = 0;
+  misplaced_tile_count = 0
   for i in range(TOTAL_TILES): # here we are iterating through all of the numbers in the current state
     if (state[i] != 0) and (state[i] != GOAL_STATE[i]): # we check if the number is not a blank space and also that the number is in the correct position as it should be in the goal state
       misplaced_tile_count += 1 # if not we increment counter by 1
@@ -112,13 +113,88 @@ def calculate_manhattan_distance_heuristic(state):
 # we do it for each number and all there distances together, this is how exactly the manhattan distance heuristic works.
   return distance
 
+def solving_puzzle(initial_state, heuristic_function):
+  nodes_queue = [] # the priority queue to store the states
+
+  visited_nodes = set() # as set to keep track of the vsisited states
+
+  start_node = Node(initial_state, cost = 0) # creating the starting initial state
+
+  if heuristic_function: # calculating the heuristic for intial state based on searching method selected
+    start_node.heuristic = heuristic_function(start_node.state)
+  else:
+    start_node.heuristic = 0
+
+  start_node.a_star_f_cost = start_node.cost + start_node.heuristic
+
+  heapq.heappush(nodes_queue, start_node) # adding the first intial state in priority queue for processing
+
+  nodes_expanded = 0 # to track the expanded states throughout search
+  max_queue_size = 0 # to track the max queue size went throughout search
+
+  print("Now we will start searching....")
+
+  start_time = time.time() # intializing time before search
+
+  while nodes_queue: # now looping until our queue is not empty
+
+    max_queue_size = max(max_queue_size, len(nodes_queue)) # calculating max queue size
+
+    current_node = heapq.heappop(nodes_queue) # getting the node with highest priority
+
+    visited_nodes.add(current_node.state) # adding to vsisited nodes for tracking
+
+    # printing the traceback that we want to show
+    print(f"\nThe best state to expand with g(n) = {current_node.cost} and h(n) = {current_node.heuristic} is...")
+    print_puzzle_board(current_node.state)
+
+    # checking if this is the goal state we defined, if yes we stop and print the metrics we calculated. 
+    if current_node.state == GOAL_STATE:
+
+      end_time = time.time()
+      duration = end_time - start_time
+
+      print(f"\nGoal state!")
+      print(f"Time taken: {duration:.6f} seconds")
+      print(f"Solution depth was {current_node.cost}")
+      print(f"Number of nodes expanded: {nodes_expanded}")
+      print(f"Max queue size: {max_queue_size}")
+
+      return current_node
+
+    # if not, we increment nodes expanded and calculate the next possible moves
+    nodes_expanded += 1
+    next_possible_moves = expand_state(current_node.state)
+
+    # then process each possible move we calculated
+    for next_state, move, cost in next_possible_moves:
+      
+      # create a new node with it's cost
+      next_node_cost = current_node.cost + cost
+      next_new_node = Node(next_state, parent = current_node, action = move, cost = next_node_cost)
+
+      # calculating heuritic and evaluation function for new node as well
+      if heuristic_function:
+        next_new_node.heuristic = heuristic_function(next_state)
+      else:
+        next_new_node.heuristic = 0
+
+      next_new_node.a_star_f_cost = next_new_node.cost + next_new_node.heuristic
+      # then we check if we have visited this state before , if not add it to visisted now.
+      if next_state not in visited_nodes:
+        heapq.heappush(nodes_queue, next_new_node)
+  # we continue this process and at end if we dont reach goal state then we declare failure
+  print("\nSearch failed: Goal not reachable.")
+  return None
 
 def get_user_input():
+    # asking the user to provide the custom board state
     print("\nEnter your 8-puzzle (3x3), using a 0 to represent the blank.")
     print("Enter the numbers for each row, delimited by spaces.")
 
     state_list = []
 
+    # looping to get each row of the state
     for i in range(GRID_SIZE):
         while True:
             try:
@@ -151,6 +227,7 @@ def get_user_input():
 
     return tuple(state_list)
 
+# selectin gthe searching algorithm we are going to use
 def select_heuristic_algorithm():
     print("\nSelect algorithm:")
     print("1) Uniform Cost Search")
@@ -170,3 +247,38 @@ def select_heuristic_algorithm():
             return calculate_manhattan_distance_heuristic
         else:
             print("Invalid choice. Please enter 1, 2, or 3.")
+
+
+def main():
+  print("welcome to my 8-Puzzle Solver")
+
+  DEFAULT_PUZZLE = (1,2,3,4,0,5,7,8,6) # default puzzle if user selects the default option
+
+  initial_state = None
+  while initial_state is None:
+    puzzle_choice = input("Type '1' for a default puzzle, or '2' to enter your own: ")
+    if puzzle_choice == '1':
+      initial_state = DEFAULT_PUZZLE
+    elif puzzle_choice == '2':
+      initial_state = get_user_input()
+    else:
+      print("Invalid choice. Please enter '1' or '2'.")
+
+  if initial_state is None:
+    print("Could not get valid initial state. Exiting.")
+    return
+
+  # checking if the intial state is already goal state then no need to run algorithm
+  if initial_state == GOAL_STATE:
+    print("\nInitial state is already the goal state!")
+    print("Solution depth was 0")
+    print("Number of nodes expanded: 0")
+    print("Max queue size: 1")
+    return
+
+  chosen_heuristic = select_heuristic_algorithm()
+    # running the search 
+  goal_node = solving_puzzle(initial_state, chosen_heuristic)
+
+if __name__ == "__main__":
+  main()
